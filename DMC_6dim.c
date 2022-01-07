@@ -6,10 +6,7 @@
 #include <time.h>
 
 int pos_idx(int i, int j, int k, int I, int N){
-    if(i>=I || j> N || k>6){
-        return(-1);
-    }
-    return (k * (I+1) * N) + (j * I) + i;
+    return (i * 6 * N) + (j * 6) + k;
 }
 
 void DMC_6dim(int I, int i0, int* N, int Nmax, double* pos, double* ET, double* ET_avg, double* ET_avg_acc, double dtau, double gamma){
@@ -17,8 +14,10 @@ void DMC_6dim(int I, int i0, int* N, int Nmax, double* pos, double* ET, double* 
     int m = 0;
     double* V = malloc(Nmax * sizeof(double));
     double* W = malloc(Nmax * sizeof(double));
-    double r1 = 0.7 + rand() / RAND_MAX;
-    double r2 = 0.7 + rand() / RAND_MAX;
+    double r1 = 0.7 + (double) rand() / RAND_MAX;
+    
+    double r2 = 0.7 + (double) rand() / RAND_MAX;
+    printf("r1: %f r2: %f \n", r1, r2);
     double t1 = acos(2. * rand() / RAND_MAX - 1);
     double t2 = acos(2. * rand() / RAND_MAX - 1);
     double p1 = 2. * 3.14 * rand() / RAND_MAX;
@@ -28,7 +27,7 @@ void DMC_6dim(int I, int i0, int* N, int Nmax, double* pos, double* ET, double* 
         N[i] = 0;
     }
     
-    N[0] = 1000;
+    N[0] = 6000;
     ET[0] = -3.0;
     
 
@@ -54,20 +53,28 @@ void DMC_6dim(int I, int i0, int* N, int Nmax, double* pos, double* ET, double* 
         if (N[i]<Nmax) {
             for (int j=0; j<N[i]; j++){
                 for (int k = 0; k<6; k++){
+                    
                     pos[pos_idx(i,j,k,I,N[I])] += sqrt(dtau) * randn(0., 1.);
-                    V[j] = (1./2) * pow(1 - exp(- pos[pos_idx(i,j,k,I,N[I])]), 2);
-                        
-                    W[j] = exp(- (V[j] - ET[i]) * dtau);
-                    m = (int)(W[j] + ((double) rand() / (RAND_MAX)));
-                        
-                    N[i+1] += m/6;
-                        
-                    if (N[i+1] < Nmax){
-                        for (int k=(N[i+1]-m); k<N[i+1]; k++){
-                            pos[pos_idx(i+1,j,k,I,N[I])] = pos[pos_idx(i,j,k,I,N[I])];
-                        }
-                    }
                 }
+                    
+                r1 = sqrt(pow(pos[pos_idx(i,j,0,I,N[I])], 2) + pow(pos[pos_idx(i,j,1,I,N[I])], 2) + pow(pos[pos_idx(i,j,2,I,N[I])], 2));
+                    
+                r2 = sqrt(pow(pos[pos_idx(i,j,3,I,N[I])], 2) + pow(pos[pos_idx(i,j,4,I,N[I])], 2) + pow(pos[pos_idx(i,j,5,I,N[I])], 2));
+                    
+                V[j] = -2./r1 - 2./r2 + 1./fabs(r1 - r2);
+                    
+                W[j] = exp(- (V[j] - ET[i]) * dtau);
+
+                m = (int)(W[j] + ((double) rand() / (RAND_MAX)));
+
+                N[i+1] += m;
+                        
+//                    if (N[i+1] < Nmax){
+//                        for (int k=(N[i+1]-m); k<N[i+1]; k++){
+//                            pos[pos_idx(i+1,j,k,I,N[I])] = pos[pos_idx(i,j,k,I,N[I])];
+//                        }
+//                    }
+            
             }
 
             for (int i´=(i0+1); i´<i; i´++) {
@@ -79,6 +86,7 @@ void DMC_6dim(int I, int i0, int* N, int Nmax, double* pos, double* ET, double* 
             if ((i-i0+1) != 0) {
                 ET_avg[i+1] = 1 / (i - i0 + 1.) * ET[i+1] + (i - i0) / (i - i0 + 1.) * ET_avg[i];
             }
+            
             ET_avg_acc[i] = ET_avg[i+1];
            
             printf("i: %d N: %d E: %f\n",i, N[i+1], ET_avg[i+1]);
