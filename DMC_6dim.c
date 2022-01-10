@@ -9,6 +9,14 @@ int pos_idx(int i, int j, int k, int I, int N){
     return (i * 6 * N) + (j * 6) + k;
 }
 
+double EL(double r[6], double r1, double r2, double r12, double a){
+    double EL = -4. - 1./ (r12 * pow(1+a*r12,3)) - 1./ (4. * pow(1+a*r12,4)) + 1./r12;
+    for(int k=0; k<3; k++){
+        EL += (r[k]/r1 - r[k+3]/r2) * (r[k] - r[k+3]) / (r12*pow(1+a*r12,2));
+    }
+    return EL;
+}
+
 void DMC_6dim(int I, int i0, int* N, int Nmax, double* pos, double* ET, double* ET_avg, double dtau, double gamma){
 
     int m;
@@ -21,6 +29,10 @@ void DMC_6dim(int I, int i0, int* N, int Nmax, double* pos, double* ET, double* 
     double t2 = acos(2. * (double) rand() / RAND_MAX - 1);
     double p1 = 2. * 3.14 * (double) rand() / RAND_MAX;
     double p2 = 2. * 3.14 *  (double) rand() / RAND_MAX;
+    double v[6];
+    double a = 0.15;
+    double E_L;
+    double r[6];
     
     for (int i=1; i<(I+1); i++) {
         N[i] = 0;
@@ -49,19 +61,30 @@ void DMC_6dim(int I, int i0, int* N, int Nmax, double* pos, double* ET, double* 
     for (int i=0; i<I; i++){
         ET_avg[i] = 0;
         for (int j=0; j<N[i]; j++){
+            r1 = sqrt(pow(pos[pos_idx(i,j,0,I,Nmax)], 2) + pow(pos[pos_idx(i,j,1,I,Nmax)], 2) + pow(pos[pos_idx(i,j,2,I,Nmax)], 2));
+            r2 = sqrt(pow(pos[pos_idx(i,j,3,I,Nmax)], 2) + pow(pos[pos_idx(i,j,4,I,Nmax)], 2) + pow(pos[pos_idx(i,j,5,I,Nmax)], 2));
+            r12 = sqrt(pow(pos[pos_idx(i,j,3,I,Nmax)] - pos[pos_idx(i,j,0,I,Nmax)], 2) + pow(pos[pos_idx(i,j,4,I,Nmax)] - pos[pos_idx(i,j,1,I,Nmax)], 2) + pow(pos[pos_idx(i,j,5,I,Nmax)] - pos[pos_idx(i,j,2,I,Nmax)], 2));
+
+            for (int k = 0; k<3; k++){
+                v[k] = -2. * pos[pos_idx(i,j,k,I,Nmax)] / r1 - 1./(2. * pow(1+a*r12,2) * (fabs(pos[pos_idx(i,j,k,I,Nmax)] - pos[pos_idx(i,j,k+3,I,Nmax)])));
+                v[k+3] = -2. * pos[pos_idx(i,j,k+3,I,Nmax)] / r2 - 1./(2. * pow(1+a*r12,2) * (fabs(pos[pos_idx(i,j,k,I,Nmax)] - pos[pos_idx(i,j,k+3,I,Nmax)])));
+            }
+
             for (int k = 0; k<6; k++){
-                pos[pos_idx(i,j,k,I,Nmax)] += sqrt(dtau) * randn(0., 1.);
+                for(int l = (N[i+1]-m); l<N[i+1]; l++){
+                    pos[pos_idx(i+1,l,k,I,Nmax)] = v[k] * dtau + pos[pos_idx(i,l,k,I,Nmax)];
+                }
+            }
+            
+            for (int k = 0; k<6; k++){
+                pos[pos_idx(i+1,j,k,I,Nmax)] += sqrt(dtau) * randn(0., 1.);
             }
                     
-            r1 = sqrt(pow(pos[pos_idx(i,j,0,I,Nmax)], 2) + pow(pos[pos_idx(i,j,1,I,Nmax)], 2) + pow(pos[pos_idx(i,j,2,I,Nmax)], 2));
-                    
-            r2 = sqrt(pow(pos[pos_idx(i,j,3,I,Nmax)], 2) + pow(pos[pos_idx(i,j,4,I,Nmax)], 2) + pow(pos[pos_idx(i,j,5,I,Nmax)], 2));
-            
-            r12 = sqrt(pow(pos[pos_idx(i,j,3,I,Nmax)] - pos[pos_idx(i,j,0,I,Nmax)], 2) + pow(pos[pos_idx(i,j,4,I,Nmax)] - pos[pos_idx(i,j,1,I,Nmax)], 2) + pow(pos[pos_idx(i,j,5,I,Nmax)] - pos[pos_idx(i,j,2,I,Nmax)], 2));
-                    
-            V[j] = (-2./r1 - 2./r2 + 1./r12);
-                    
-            W[j] = exp( -(V[j] - ET[i]) * dtau);
+            for(int k = 0; k<6; k++){
+                r[k] = pos[pos_idx(i+1,j,k,I,Nmax)];
+            }
+            E_L = EL(r, r1, r2, r12, a);
+            W[j] = exp( -(E_L - ET[i]) * dtau);
 
             m = (int)(W[j] + ((double) rand() / (RAND_MAX)));
 
@@ -92,7 +115,7 @@ void DMC_6dim(int I, int i0, int* N, int Nmax, double* pos, double* ET, double* 
             ET_avg[i+1] = 1 / (i - i0 + 1.) * ET[i+1] + (i - i0) / (i - i0 + 1.) * ET_avg[i];
             }
         
-//        printf("i: %d N: %d E: %f\n",i, N[i], ET_avg[i]);
+        printf("i: %d N: %d E: %f\n",i, N[i], ET_avg[i]);
     }
     printf("N: %d E: %f\n",N[I], ET_avg[I]);
 }
